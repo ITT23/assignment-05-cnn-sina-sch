@@ -8,47 +8,44 @@ from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, RandomFl
 from keras.metrics import categorical_crossentropy
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from keras.utils import to_categorical
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from typing import Tuple, Dict, List
+from sklearn.model_selection import train_test_split
+from typing import Dict, List
 import config as c
 
 
 def main():
-    annotations, val_annotations = parse_annotations()
+    annotations= parse_annotations()
     images, labels, label_names = load_images(annotations, "./data")
-    val_images, val_labels, _ = load_images(val_annotations, "./02-dataset/data-schreiner")
-    X_train, X_test, train_labels, test_labels = preprocess_data(images, val_images, labels, val_labels)
+    X_train, X_test, y_train, y_test = train_test_split(images, labels, test_size=0.2, random_state=42)
+    X_train, X_test, train_labels, test_labels = preprocess_data(X_train, X_test, y_train, y_test)
     model = create_model(label_names, X_train, train_labels, X_test, test_labels)
     model = train_model(model, X_train, train_labels, X_test, test_labels)
-    create_confusion_matrix(model, X_test, val_labels, label_names)
-
-
+    model.save('gesture_recognition')
+    
 
 # helper function to load and parse annotations
-def parse_annotations() -> Tuple[Dict, Dict]:
+def parse_annotations() -> Dict:
     annotations = dict()
-    val_annotations = dict()
 
     for condition in c.CONDITIONS:
         with open(f'./data/_annotations/{condition}.json') as f:
             annotations[condition] = json.load(f)
 
-        with open('./02-dataset/annot-schreiner.json') as g:
-            val_annotations[condition] = json.load(g)
-
-    return annotations, val_annotations
+    return annotations
 
 
 # helper function to pre-process images (color channel conversion and resizing)
-def preprocess_image(img):
+def preprocess_image(img:List) -> List:
+
     if c.COLOR_CHANNELS == 1:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_resized = cv2.resize(img, c.SIZE)
+
     return img_resized
 
 
 ## load images and annotations
-def load_images(annotations:Dict, path:str) -> Tuple[List, List]:
+def load_images(annotations:Dict, path:str) -> List[List, List, List]:
     images = [] # stores actual image data
     labels = [] # stores labels (as integer - because this is what our network needs)
     label_names = [] # maps label ints to their actual categories so we can understand predictions later
@@ -95,7 +92,7 @@ def load_images(annotations:Dict, path:str) -> Tuple[List, List]:
     return images, labels, label_names 
 
         
-def preprocess_data(X_train:List, X_test:List, y_train:List, y_test:List):
+def preprocess_data(X_train:List, X_test:List, y_train:List, y_test:List) -> List[List, List, List, List]:
     X_train = np.array(X_train).astype('float32')
     X_train = X_train / 255.
 
@@ -114,7 +111,7 @@ def preprocess_data(X_train:List, X_test:List, y_train:List, y_test:List):
     return X_train, X_test, train_label, test_label
 
 
-def create_model(label_names:List, X_train, train_label, X_test, test_label):
+def create_model(label_names:List) -> Sequential:
 
     num_classes = len(label_names)
     # define model structure
@@ -155,12 +152,13 @@ def create_model(label_names:List, X_train, train_label, X_test, test_label):
     # for classification, categorial crossentropy is used as a loss function
     # use the adam optimizer unless you have a good reason not to
     model.compile(loss=categorical_crossentropy, optimizer="adam", metrics=['accuracy'])
+
     return model
 
 
 ## now, we can train the model using the fit() function
 ## this will take a while
-def train_model(model, X_train, train_label, X_test, test_label):
+def train_model(model:Sequential, X_train:List, train_label:List, X_test:List, test_label:List) -> Sequential:
     # define callback functions that react to the model's behavior during training
     # in this example, we reduce the learning rate once we get stuck and early stopping
     # to cancel the training if there are no improvements for a certain amount of epochs
@@ -180,24 +178,6 @@ def train_model(model, X_train, train_label, X_test, test_label):
     return model
 
 
-## visualize classification results with a confusion matrix
-def create_confusion_matrix(model, X_test, y_test, label_names):
-    # let the model make predictions for our training data
-    y_predictions = model.predict(X_test)
-
-    # # to build a confusion matrix, we have to convert it to classifications
-    # # this can be done by using the argmax() function to set the probability to 1 and the rest to 0
-    y_predictions = np.argmax(y_predictions, axis=1)
-
-    # # create and plot confusion matrix
-    conf_matrix = confusion_matrix(y_test, y_predictions)
-
-    fig = plt.figure(figsize=(10, 10))
-
-    ConfusionMatrixDisplay(conf_matrix, display_labels=label_names).plot(ax=plt.gca())
-
-    plt.xticks(rotation=90, ha='center')
-    plt.savefig('conf-matrix.png')
 
 
 
