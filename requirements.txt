@@ -1,0 +1,10 @@
+keras
+opencv-python
+opencv-contrib-python
+json
+matplotlib
+numpy
+sckit-learn
+typing
+random
+pynput
