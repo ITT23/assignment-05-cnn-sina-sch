@@ -1,6 +1,5 @@
 import cv2
 import json
-from matplotlib import pyplot as plt
 import numpy as np
 import os
 from keras.models import Sequential
@@ -18,7 +17,7 @@ def main():
     images, labels, label_names = load_images(annotations, "./data")
     X_train, X_test, y_train, y_test = train_test_split(images, labels, test_size=0.2, random_state=42)
     X_train, X_test, train_labels, test_labels = preprocess_data(X_train, X_test, y_train, y_test)
-    model = create_model(label_names, X_train, train_labels, X_test, test_labels)
+    model = create_model(label_names)
     model = train_model(model, X_train, train_labels, X_test, test_labels)
     model.save('gesture_recognition')
     
@@ -45,7 +44,7 @@ def preprocess_image(img:List) -> List:
 
 
 ## load images and annotations
-def load_images(annotations:Dict, path:str) -> List[List, List, List]:
+def load_images(annotations:Dict, path:str) -> List:
     images = [] # stores actual image data
     labels = [] # stores labels (as integer - because this is what our network needs)
     label_names = [] # maps label ints to their actual categories so we can understand predictions later
@@ -92,7 +91,7 @@ def load_images(annotations:Dict, path:str) -> List[List, List, List]:
     return images, labels, label_names 
 
         
-def preprocess_data(X_train:List, X_test:List, y_train:List, y_test:List) -> List[List, List, List, List]:
+def preprocess_data(X_train:List, X_test:List, y_train:List, y_test:List) -> List:
     X_train = np.array(X_train).astype('float32')
     X_train = X_train / 255.
 
